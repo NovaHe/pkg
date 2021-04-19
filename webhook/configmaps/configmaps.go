@@ -137,9 +137,14 @@ func (ac *reconciler) reconcileValidatingWebhook(ctx context.Context, caCert []b
 
 	webhook := configuredWebhook.DeepCopy()
 
-	// Clear out any previous (bad) OwnerReferences.
-	// See: https://github.com/knative/serving/issues/5845
-	webhook.OwnerReferences = nil
+	// Set the owner to namespace.
+	ns, err := ac.client.CoreV1().Namespaces().Get(ctx, system.Namespace(), metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch namespace: %v", err)
+	}
+
+	nsRef := metav1.NewControllerRef(ns, corev1.SchemeGroupVersion.WithKind("Namespace"))
+	webhook.OwnerReferences = append(webhook.OwnerReferences, *nsRef)
 
 	for i, wh := range webhook.Webhooks {
 		if wh.Name != webhook.Name {
